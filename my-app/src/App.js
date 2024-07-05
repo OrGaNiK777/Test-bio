@@ -1,10 +1,12 @@
 import './App.css';
-import Movies from './components/movies/Movies.js';
+import BasicTable from './components/basicTable/BasicTable';
+
 
 function App() {
   return (
     <div className="App">
-      <Movies />
+      <BasicTable></BasicTable>
+
     </div>
   );
 }
