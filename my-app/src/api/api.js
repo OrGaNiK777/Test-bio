@@ -5,6 +5,7 @@ const headers = {
 
 // обработка результата ответа сервера
 export const checkingResponse = (res) => {
+
   if (res.ok) {
     return res.json();
   }
