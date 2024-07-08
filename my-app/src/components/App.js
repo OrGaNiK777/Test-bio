@@ -1,16 +1,39 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 import { keepPreviousData, useInfiniteQuery, } from 'react-query'
-import { useVirtualizer } from 'react-virtual'
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, getFilteredRowModel, getPaginationRowModel, } from '/react-table'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable, getFilteredRowModel, getPaginationRowModel, } from 'react-table'
 import './App.css'
 import { postMovies } from '../api/api'
 import { headlines } from '../constants/headlines'
 import { FaSearch } from 'react-icons/fa'
-
 export default function App() {
-
-	const [movies, setMovies] = useState([])
+	const [startMovies, setStartMovies] = useState([])
 	function downloadMovies() {
 		postMovies({
 			page: 1,
@@ -28,7 +51,7 @@ export default function App() {
 					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
 					return i
 				})
-				setMovies(items)
+				setStartMovies(items)
 				console.log(items)
 			})
 			.catch((err) => {
@@ -40,7 +63,7 @@ export default function App() {
 		downloadMovies()
 	}, [])
 	const columns = useMemo(() => headlines, [])
-	const data = useMemo(() => movies, [movies])
+	const data = useMemo(() => startMovies, [startMovies])
 
 	const [columnFilters, setColumnFilters] = useState([])
 	const rerender = useReducer(() => ({}), {})[1]
@@ -70,7 +93,7 @@ export default function App() {
 	function search(phrase) {
 		postMovies({ search: phrase })
 			.then((item) => {
-				setMovies(item.data)
+				setStartMovies(item.data)
 				console.log(item.data)
 			})
 			.catch((err) => {
@@ -120,18 +143,10 @@ export default function App() {
 			pageSize: start
 		})
 			.then((item) => {
-				const items = item.data.map((i) => {
-					i.id = String(i.id)
-					i.adult ? (i.adult = '18+') : (i.adult = '0+')
-					i.belongs_to_collection == null ? (i.belongs_to_collection = '-') : (i.belongs_to_collection = i.belongs_to_collection.name)
-					if (i.budget == null) { i.budget = '-' }
-					Array.isArray(i.genres) ? (i.genres = i.genres.map((genre) => genre.name).join(', ')) : (i.genres = '-')
-					Array.isArray(i.production_companies) ? (i.production_companies = i.production_companies.map((i) => i.name).join(', ')) : (i.production_companies = '-')
-					Array.isArray(i.production_countries) ? (i.production_countries = i.production_countries.map((i) => i.name).join(', ')) : (i.production_countries = '-')
-					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
+				const items = item.data.map((i) => {Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
 					return i
 				})
-				setMovies(items)
+				setStartMovies(items)
 				console.log(items)
 			})
 			.catch((err) => {
@@ -150,12 +165,12 @@ export default function App() {
 	const { data1, fetchNextPage, isFetching, isLoading } =
 		useInfiniteQuery({
 			queryKey: [
-				'people',
+				'movies',
 				sorting, //вызов при сортировке изменений
 			],
-			queryFn: async ({ pageParam = 0 }) => {
+			queryFn: async ({ pageParam = 1 }) => {
 				const start = (pageParam) * fetchSize
-				const fetchedData = await fetchData(start, fetchSize, sorting) //симулируем вызов API
+				const fetchedData = await visMovies(start, fetchSize, sorting) //симулируем вызов API
 				return fetchedData
 			},
 			initialPageParam: 0,
