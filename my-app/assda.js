@@ -1,38 +1,28 @@
-import React from "react";
-import ReactTable from "react-table";
-import "react-table/react-table.css";
-
-const filtersSearch = {
-  includes: (data, search) => data.includes(search),
-  equals: (data, search) => data === search
-};
-
-export default function ReactTableWithFilters({ ...props }) {
-  const [filters, setFilters] = React.useState({});
-
-  function filterComponent({ onChange, column }) {
-    return (
-      <input
-        onChange={(e) => {
-          setFilters((prevFilters) => ({ ...prevFilters, [column.id]: filtersSearch.includes }));
-          onChange(e.target.value);
-        }}
-        onKeyPress={(e) => {
-          if (e.which === 13) {
-            setFilters((prevFilters) => ({
-              ...prevFilters,
-              [column.id]: filtersSearch.equals
-            }));
-            onChange(e.target.value);
-          }
-        }}
-      />
-    );
+ // имитирует серверный API
+ const fetchData = async (
+  start,
+  size,
+  sorting
+) => {
+  const dbData = [...data]
+  if (sorting.length) {
+    const sort = sorting[0]
+    const { id, desc } = sort
+    dbData.sort((a, b) => {
+      if (desc) {
+        return a[id] < b[id] ? 1 : -1
+      }
+      return a[id] > b[id] ? 1 : -1
+    })
   }
 
-  function filterMethod({ id, value }, row) {
-    return filters[id](String(row[id]), value);
-  };
+  // имитируем серверный API
+  await new Promise(resolve => setTimeout(resolve, 200))
 
-  return <ReactTable {...props} filterable FilterComponent={filterComponent} defaultFilterMethod={filterMethod} />;
+  return {
+    data: dbData.slice(start, start + size),
+    meta: {
+      totalRowCount: dbData.length,
+    },
+  }
 }
