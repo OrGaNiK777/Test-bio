@@ -73,38 +73,9 @@ export default function App() {
 	const [data, setData] = useState([])
 	const [flatData, setFlatData] = useState([])
 	const [sorting, setSorting] = useState([])
-	const visDownMovies = (start, size, sorting) => {
-
-		postMovies({
-			pageSize: start
-		})
-			.then((item) => {
-				const items = item.data.map((i) => {
-					i.adult ? (i.adult = '18+') : (i.adult = '0+')
-					i.belongs_to_collection == null ? (i.belongs_to_collection = '-') : (i.belongs_to_collection = i.belongs_to_collection.name)
-					if (i.budget == null) { i.budget = '-' }
-					Array.isArray(i.genres) ? (i.genres = i.genres.map((genre) => genre.name).join(', ')) : (i.genres = '-')
-					Array.isArray(i.production_companies) ? (i.production_companies = i.production_companies.map((i) => i.name).join(', ')) : (i.production_companies = '-')
-					Array.isArray(i.production_countries) ? (i.production_countries = i.production_countries.map((i) => i.name).join(', ')) : (i.production_countries = '-')
-					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
-					return i
-				})
-				setFlatData(items)
-			})
-			.catch((err) => {
-				console.log(err)
-			})
-
-		return {
-			data: flatData.slice(start, start + size),
-			meta: {
-				totalRowCount: flatData.length,
-			},
-		}
-	}
 
 	const table = useReactTable({
-		data,
+		data: flatData,
 		columns,
 		filterFns: {},
 		state: {
@@ -157,17 +128,9 @@ export default function App() {
 				</PaginTable >
 				:
 				<VirtTable
-					table={table}
-					setSorting={setSorting}
-					sorting={sorting}
-					visDownMovies={visDownMovies}
-					setData={setData}
-					flatData={flatData}
+					columns={columns}
 				></VirtTable>
 			}
-
 		</>
-
-
 	)
 }

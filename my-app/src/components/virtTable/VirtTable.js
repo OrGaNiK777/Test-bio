@@ -1,14 +1,52 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-
-import { useVirtualizer } from '@tanstack/react-virtual'
-import { flexRender } from '@tanstack/react-table'
+import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table'
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { postMovies } from '../../api/api'
 
-export default function VirtTable({ flatData, table, setData, dataMov, sorting, setSorting, visDownMovies }) {
+const fetchSize = 20
+let mov = []
+function VirtTable({ columns }) {
+	const [data1, setData1] = useState([])
+
+	const visDownMovies = (start, size) => {
+		postMovies({ pageSize: start ? start : 10 })
+			.then((item) => {
+				const items = item.data.map((i) => {
+					i.adult ? (i.adult = '18+') : (i.adult = '0+')
+					i.belongs_to_collection == null ? (i.belongs_to_collection = '-') : (i.belongs_to_collection = i.belongs_to_collection.name)
+					if (i.budget == null) {
+						i.budget = '-'
+					}
+					Array.isArray(i.genres) ? (i.genres = i.genres.map((genre) => genre.name).join(', ')) : (i.genres = '-')
+					Array.isArray(i.production_companies) ? (i.production_companies = i.production_companies.map((i) => i.name).join(', ')) : (i.production_companies = '-')
+					Array.isArray(i.production_countries) ? (i.production_countries = i.production_countries.map((i) => i.name).join(', ')) : (i.production_countries = '-')
+					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
+					return i
+				})
+				mov.unshift(...items)
+				setData1(items)
+				console.log(mov)
+			})
+			.catch((err) => {
+				console.log(err)
+			})
+
+		return {
+			data: data1.slice(start, start + size),
+			meta: {
+				totalRowCount: data1.length,
+			}
+		}
+
+	}
+
+	//we need a reference to the scrolling element for logic down below
 	const tableContainerRef = useRef(null)
-	const fetchSize = 5
 
-	//react-query имеет хук useInfiniteQuery, который идеально подходит для этого варианта использования
+	const [sorting, setSorting] = useState([])
+
+	//react-query has a useInfiniteQuery hook that is perfect for this use case
 	const { data, fetchNextPage, isFetching, isLoading } = useInfiniteQuery({
 		queryKey: [
 			'movies',
@@ -16,7 +54,9 @@ export default function VirtTable({ flatData, table, setData, dataMov, sorting, 
 		],
 		queryFn: ({ pageParam = 0 }) => {
 			const start = pageParam * fetchSize
-			const fetchedData = visDownMovies(start, fetchSize, sorting)
+
+			const fetchedData = visDownMovies(start, fetchSize) //pretend api call
+			console.log(fetchedData)
 			return fetchedData
 		},
 		initialPageParam: 0,
@@ -24,48 +64,56 @@ export default function VirtTable({ flatData, table, setData, dataMov, sorting, 
 		refetchOnWindowFocus: false,
 		placeholderData: keepPreviousData,
 	})
-
-	//сглаживаем массив массивов из хука useInfiniteQuery
+	//flatten the array of arrays from the useInfiniteQuery hook
 	console.log(data)
-	//const flatData = useMemo(() => data?.pages?.flatMap((page) => page.data) ?? [], [data])
+	const flatData = useMemo(() => data?.pages?.flatMap((page) => page.data) ?? [], [data])
 	const totalDBRowCount = data?.pages?.[0]?.meta?.totalRowCount ?? 0
 	const totalFetched = flatData.length
-	//console.log(flatData)
-	//бесконечная прокрутка
-	useEffect(() => {
-		setData(flatData)
-	})
-	//вызывается при прокрутке и, возможно, при монтировании, чтобы получить больше данных, когда пользователь прокручивает и достигает нижней части таблицы
+	console.log(flatData)
+	//called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of table
 	const fetchMoreOnBottomReached = useCallback(
 		(containerRefElement) => {
 			if (containerRefElement) {
 				const { scrollHeight, scrollTop, clientHeight } = containerRefElement
-				//как только пользователь прокрутит таблицу в пределах 500 пикселей от нижней части таблицы, извлекаем больше данных, если сможем
-				if (scrollHeight - scrollTop - clientHeight < 500 && !isFetching && totalFetched < totalDBRowCount) {
-					console.log(scrollHeight - scrollTop - clientHeight < 700)
-					// console.log(isFetching)
-					// console.log(totalFetched)
-					// console.log(totalDBRowCount)
-					//setData(flatData)
+				//once the user has scrolled within 500px of the bottom of the table, fetch more data if we can
+				if (scrollHeight - scrollTop - clientHeight < 700 && !isFetching && totalFetched < totalDBRowCount) {
+					console.log("внизу")
 					fetchNextPage()
+				}
+				if (scrollHeight - scrollTop - clientHeight < 700) {
+					fetchNextPage()
+					console.log("внизу1")
 				}
 			}
 		},
 		[fetchNextPage, isFetching, totalFetched, totalDBRowCount]
 	)
-	//проверка при монтировании и после выборки, чтобы увидеть, не прокручена ли таблица уже вниз и ей нужно немедленно получить больше данных
+
+	//a check on mount and after a fetch to see if the table is already scrolled to the bottom and immediately needs to fetch more data
 	useEffect(() => {
 		fetchMoreOnBottomReached(tableContainerRef.current)
 	}, [fetchMoreOnBottomReached])
 
-	//прокрутка к началу таблицы при сортировке изменений
+	const table = useReactTable({
+		data: flatData.length === 0 ? data1 : flatData,
+		columns,
+		state: {
+			sorting,
+		},
+		getCoreRowModel: getCoreRowModel(),
+		getSortedRowModel: getSortedRowModel(),
+		manualSorting: true,
+		debugTable: true,
+	})
+	//scroll to top of table when sorting changes
 	const handleSortingChange = (updater) => {
 		setSorting(updater)
 		if (!!table.getRowModel().rows.length) {
 			rowVirtualizer.scrollToIndex?.(0)
 		}
 	}
-	//поскольку этот параметр таблицы является производным от состояния модели строки таблицы, мы используем утилиту table.setOptions
+
+	//since this table option is derived from table row model state, we're using the table.setOptions utility
 	table.setOptions((prev) => ({
 		...prev,
 		onSortingChange: handleSortingChange,
@@ -75,9 +123,9 @@ export default function VirtTable({ flatData, table, setData, dataMov, sorting, 
 
 	const rowVirtualizer = useVirtualizer({
 		count: rows.length,
-		estimateSize: () => 33, //оцениваем высоту строки для точного перетаскивания полосы прокрутки
+		estimateSize: () => 33, //estimate row height for accurate scrollbar dragging
 		getScrollElement: () => tableContainerRef.current,
-		//измеряем динамическую высоту строки, за исключением Firefox, поскольку он неправильно измеряет высоту границы таблицы
+		//measure dynamic row height, except in firefox because it measures table border height incorrectly
 		measureElement: typeof window !== 'undefined' && navigator.userAgent.indexOf('Firefox') === -1 ? (element) => element?.getBoundingClientRect().height : undefined,
 		overscan: 5,
 	})
@@ -87,7 +135,7 @@ export default function VirtTable({ flatData, table, setData, dataMov, sorting, 
 	}
 
 	return (
-		<>
+		<div className='app'>
 			<div
 				className='container'
 				onScroll={(e) => fetchMoreOnBottomReached(e.target)}
@@ -95,7 +143,7 @@ export default function VirtTable({ flatData, table, setData, dataMov, sorting, 
 				style={{
 					overflow: 'auto', //our scrollable table container
 					position: 'relative', //needed for sticky header
-					height: '600px', //should be a fixed height
+					height: '100vh', //should be a fixed height
 				}}
 			>
 				{/* Even though we're still using sematic table tags, we must use CSS grid and flexbox for dynamic row heights */}
@@ -178,6 +226,7 @@ export default function VirtTable({ flatData, table, setData, dataMov, sorting, 
 				</table>
 			</div>
 			{isFetching && <div>Fetching More...</div>}
-		</>
+		</div>
 	)
 }
+export default VirtTable
