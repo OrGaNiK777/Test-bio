@@ -15,18 +15,17 @@ import {
 
 export default function App() {
 
-	const [startMovies, setStartMovies] = useState([])
 	const [displayedPages, setDisplayedPages] = useState(true)
 	const [inputSearchMovie, setInputSearchMovie] = useState('')
 	const [searchMovie, setSearchMovie] = useState({})
-	const dataPagin = useMemo(() => startMovies, [startMovies])
+
 	const columns = useMemo(() => headlines, [])
 
 
 	function downloadMovies() {
 		postMovies({
-			page: 1,
-			pageSize: 10,
+			page: 0,
+			pageSize: 100,
 		})
 			.then((item) => {
 				const items = item.data.map((i) => {
@@ -40,7 +39,7 @@ export default function App() {
 					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
 					return i
 				})
-				setStartMovies(items)
+				setData(items)
 				console.log(items)
 			})
 			.catch((err) => {
@@ -71,10 +70,11 @@ export default function App() {
 	}
 
 	//VirtTable
+	const [data, setData] = useState([])
+	const [flatData, setFlatData] = useState([])
 	const [sorting, setSorting] = useState([])
-	const [visMovies, setVisMovies] = useState([])
-	const dataVis = useMemo(() => visMovies, [visMovies])
-	function visDownMovies(start, size, sorting) {
+	const visDownMovies = (start, size, sorting) => {
+
 		postMovies({
 			pageSize: start
 		})
@@ -89,31 +89,34 @@ export default function App() {
 					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
 					return i
 				})
-				setVisMovies(items)
-				console.log(items)
-				return {
-					data: items.slice(start, start + size),
-					meta: {
-						totalRowCount: items.length,
-					},
-				}
+				setFlatData(items)
 			})
 			.catch((err) => {
 				console.log(err)
 			})
+
+		return {
+			data: flatData.slice(start, start + size),
+			meta: {
+				totalRowCount: flatData.length,
+			},
+		}
 	}
+
 	const table = useReactTable({
-		data: (displayedPages ? dataPagin : dataVis),
+		data,
 		columns,
-		debugTable: true,
 		filterFns: {},
+		state: {
+			sorting,
+		},
 		getCoreRowModel: getCoreRowModel(),
 		getFilteredRowModel: getFilteredRowModel(), //client side filtering
 		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		debugTable: true,
+		getPaginationRowModel: displayedPages ? getPaginationRowModel() : "",
 		debugHeaders: true,
 		debugColumns: false,
+		debugTable: true,
 		manualSorting: displayedPages ? false : true
 	})
 
@@ -158,9 +161,13 @@ export default function App() {
 					setSorting={setSorting}
 					sorting={sorting}
 					visDownMovies={visDownMovies}
-					visMovies={visMovies}
+					setData={setData}
+					flatData={flatData}
 				></VirtTable>
 			}
+
 		</>
+
+
 	)
 }
