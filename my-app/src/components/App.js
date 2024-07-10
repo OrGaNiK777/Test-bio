@@ -14,13 +14,12 @@ import {
 } from '@tanstack/react-table'
 
 export default function App() {
-
+	const [data, setData] = useState([])
+	const [columnVisibility, setColumnVisibility] = useState({})
 	const [displayedPages, setDisplayedPages] = useState(true)
 	const [inputSearchMovie, setInputSearchMovie] = useState('')
 	const [searchMovie, setSearchMovie] = useState({})
-
 	const columns = useMemo(() => headlines, [])
-
 
 	function downloadMovies() {
 		postMovies({
@@ -55,7 +54,7 @@ export default function App() {
 	function search(phrase) {
 		postMovies({ search: phrase })
 			.then((item) => {
-				setSearchMovie(item.data)
+				setData(item.data)
 				console.log(item.data)
 			})
 			.catch((err) => {
@@ -70,21 +69,20 @@ export default function App() {
 	}
 
 	//VirtTable
-	const [data, setData] = useState([])
-	const [flatData, setFlatData] = useState([])
 	const [sorting, setSorting] = useState([])
-
 	const table = useReactTable({
-		data: flatData,
+		data,
 		columns,
 		filterFns: {},
 		state: {
 			sorting,
+			columnVisibility,
 		},
+		onColumnVisibilityChange: setColumnVisibility,
 		getCoreRowModel: getCoreRowModel(),
 		getFilteredRowModel: getFilteredRowModel(), //client side filtering
 		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: displayedPages ? getPaginationRowModel() : "",
+		getPaginationRowModel: getPaginationRowModel(),
 		debugHeaders: true,
 		debugColumns: false,
 		debugTable: true,
@@ -124,11 +122,18 @@ export default function App() {
 			<button className='paginationBtn' onClick={() => { setDisplayedPages(!displayedPages) }}>{displayedPages ? "Pagination" : "All"}</button>
 			{displayedPages ?
 				<PaginTable
-					table={table}>
+					table={table}
+					sorting={sorting}
+					setSorting={setSorting}>
 				</PaginTable >
 				:
 				<VirtTable
 					columns={columns}
+					displayedPages={displayedPages}
+					columnVisibility={columnVisibility}
+					setColumnVisibility={setColumnVisibility}
+					sorting={sorting}
+					setSorting={setSorting}
 				></VirtTable>
 			}
 		</>

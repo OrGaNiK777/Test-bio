@@ -5,7 +5,6 @@ const headers = {
 
 // обработка результата ответа сервера
 export const checkingResponse = (res) => {
-
   if (res.ok) {
     return res.json();
   }
@@ -20,11 +19,11 @@ export const postMovies = async (data) => {
     body: JSON.stringify({
       page: data.page, // номер страницы, начиная счёт с 0, по умолчанию 0,
       page_size: data.pageSize, // число записей на странице,
-      //sort_field: data.sortField, // по какому полю сортировать: "", // imdb_id, budget, original_language, popularity, release_date, revenue, runtime, status, vote_average или vote_count,
+      //sort_field: data.sortField, // по какому полю сортировать: "", imdb_id, budget, original_language, popularity, release_date, revenue, runtime, status, vote_average или vote_count,
       // sort_order: "", // направление сортировки: "", // asc или desc, по умолчанию asc,
       // imdb_id: "", // ID фильма для поиска только одного фильма,
       // ids: "", // массив чисел ID из базы,
-      //search: data.search, // строка поиска по фразе,
+      search: data.search, // строка поиска по фразе,
       // adult: "", // фильм для взрослых true/false,
       // budget_min: "", // целое число,
       // budget_max: "", // целое число,
