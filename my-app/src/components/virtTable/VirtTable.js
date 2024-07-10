@@ -1,19 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table'
+import { flexRender, getCoreRowModel, getFilteredRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table'
 import { keepPreviousData, useInfiniteQuery } from '@tanstack/react-query'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { postMovies } from '../../api/api'
+import Filter from '../Filter/Filter'
 
-function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibility }) {
+function VirtTable({ searchMovieМVis, columns, columnVisibility, setColumnVisibility }) {
 	const fetchSize = 30
 	const tableContainerRef = useRef(null)
 	const [lengthMov, setLengthMov] = useState("-")
 	const [sorting, setSorting] = useState([])
-	//react-query has a useInfiniteQuery hook that is perfect for this use case
-	const { data, fetchNextPage, isFetching, isLoading } = useInfiniteQuery({
+
+	const { data, fetchNextPage, isFetching } = useInfiniteQuery({
 		queryKey: [
-			'movies',
-			sorting, //refetch when sorting changes
+			'movies'
 		],
 		queryFn: ({ pageParam = 1 }) => {
 			const start = pageParam * fetchSize
@@ -21,6 +21,7 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 				.then((item) => {
 					setLengthMov(item.data_size)
 					const items = item.data.map((i) => {
+						i.id = String(i.id)
 						i.adult ? (i.adult = '18+') : (i.adult = '0+')
 						i.belongs_to_collection == null ? (i.belongs_to_collection = '-') : (i.belongs_to_collection = i.belongs_to_collection.name)
 						if (i.budget == null) { i.budget = '-' }
@@ -47,31 +48,33 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 		refetchOnWindowFocus: false,
 		placeholderData: keepPreviousData,
 	})
-	//flatten the array of arrays from the useInfiniteQuery hook
+
 	const flatData = useMemo(() => data?.pages?.flatMap((page) => page.data) ?? [], [data])
 	const totalDBRowCount = lengthMov
 	const totalFetched = flatData.length
-	//called on scroll and possibly on mount to fetch more data as the user scrolls and reaches bottom of tabl
 	const fetchMoreOnBottomReached = useCallback(
 		(containerRefElement) => {
 			if (containerRefElement) {
 				const { scrollHeight, scrollTop, clientHeight } = containerRefElement
-				//once the user has scrolled within 500px of the bottom of the table, fetch more data if we can
+
 				if (scrollHeight - scrollTop - clientHeight < 900 && !isFetching && totalFetched < totalDBRowCount) {
-					fetchNextPage()
+					if (searchMovieМVis.length === 0) {
+						fetchNextPage()
+					}
 				}
 			}
 		},
 		[fetchNextPage, isFetching, totalFetched, totalDBRowCount]
 	)
-	//проверка при монтировании и после выборки, чтобы увидеть, прокручивается ли таблица уже до самого низа и нужно ли немедленно извлекать дополнительные данные
+
 	useEffect(() => {
 		fetchMoreOnBottomReached(tableContainerRef.current)
 	}, [fetchMoreOnBottomReached])
 
 	const table = useReactTable({
-		data: flatData,
+		data: (searchMovieМVis.length === 0) ? flatData : searchMovieМVis,
 		columns,
+		filterFns: {},
 		state: {
 			sorting,
 			columnVisibility,
@@ -79,12 +82,11 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 		onColumnVisibilityChange: setColumnVisibility,
 		getCoreRowModel: getCoreRowModel(),
 		getSortedRowModel: getSortedRowModel(),
-		manualSorting: true,
+		getFilteredRowModel: getFilteredRowModel(),
+		manualSorting: false,
 		debugTable: true,
 	})
 
-
-	//прокрутите таблицу до начала при сортировке изменений
 	const handleSortingChange = (updater) => {
 		setSorting(updater)
 		if (!!table.getRowModel().rows.length) {
@@ -92,7 +94,6 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 		}
 	}
 
-	//поскольку этот параметр таблицы является производным от состояния модели строк таблицы, мы используем утилиту table.setOptions
 	table.setOptions((prev) => ({
 		...prev,
 		onSortingChange: handleSortingChange,
@@ -102,16 +103,12 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 
 	const rowVirtualizer = useVirtualizer({
 		count: rows.length,
-		estimateSize: () => 33, //оцените высоту строки для точного перетаскивания полосы прокрутки
+		estimateSize: () => 70,
 		getScrollElement: () => tableContainerRef.current,
-		//измеряет динамическую высоту строки, за исключением firefox, поскольку он неправильно измеряет высоту границы таблицы
 		measureElement: typeof window !== 'undefined' && navigator.userAgent.indexOf('Firefox') === -1 ? (element) => element?.getBoundingClientRect().height : undefined,
 		overscan: 5,
 	})
 
-	if (isLoading) {
-		return <>Loading...</>
-	}
 
 	return (
 		<div className='app'>
@@ -120,19 +117,19 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 				onScroll={(e) => fetchMoreOnBottomReached(e.target)}
 				ref={tableContainerRef}
 				style={{
-					overflow: 'auto', //our scrollable table container
-					position: 'relative', //needed for sticky header
-					height: '100vh', //should be a fixed height
-				}}
-			>
-				{/* Even though we're still using sematic table tags, we must use CSS grid and flexbox for dynamic row heights */}
+					overflow: 'auto',
+					position: 'relative',
+					height: '99.5vh',
+				}}>
 				<table style={{ display: 'grid' }}>
 					<thead
 						style={{
 							display: 'grid',
 							position: 'sticky',
-							top: 0,
+							top: 68,
 							zIndex: 1,
+							backgroundColor: '#bbebca',
+							height: "75px"
 						}}
 					>
 						{table.getHeaderGroups().map((headerGroup) => (
@@ -142,7 +139,10 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 										<th
 											key={header.id}
 											style={{
+												cursor: "pointer",
 												display: 'flex',
+												flexDirection: 'column',
+												justifyContent: "space-around",
 												width: header.getSize(),
 											}}
 										>
@@ -158,6 +158,16 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 													desc: ' 🔽',
 												}[header.column.getIsSorted()] ?? null}
 											</div>
+											{header.column.getCanFilter() ? (
+												<div style={{
+													display: 'flex',
+													flexDirection: 'column',
+													width: (header.getSize() - 10),
+													marginLeft: "5px"
+												}}>
+													<Filter column={header.column} />
+												</div>
+											) : null}
 										</th>
 									)
 								})}
@@ -167,21 +177,21 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 					<tbody
 						style={{
 							display: 'grid',
-							height: `${rowVirtualizer.getTotalSize()}px`, //tells scrollbar how big the table is
-							position: 'relative', //needed for absolute positioning of rows
+							height: `${rowVirtualizer.getTotalSize()}px`,
+							position: 'relative',
 						}}
 					>
 						{rowVirtualizer.getVirtualItems().map((virtualRow) => {
 							const row = rows[virtualRow.index]
 							return (
 								<tr
-									data-index={virtualRow.index} //needed for dynamic row height measurement
-									ref={(node) => rowVirtualizer.measureElement(node)} //measure dynamic row height
+									data-index={virtualRow.index}
+									ref={(node) => rowVirtualizer.measureElement(node)}
 									key={row.id}
 									style={{
 										display: 'flex',
 										position: 'absolute',
-										transform: `translateY(${virtualRow.start}px)`, //this should always be a `style` as it changes on scroll
+										transform: `translateY(${virtualRow.start}px)`,
 										width: '100%',
 									}}
 								>
@@ -190,12 +200,13 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 											<td
 												key={cell.id}
 												style={{
+													height: "150px",
 													display: 'flex',
 													width: cell.column.getSize(),
 												}}
-											>
-												{flexRender(cell.column.columnDef.cell, cell.getContext())}
-											</td>
+											><div className='scrollable'>
+													{flexRender(cell.column.columnDef.cell, cell.getContext())}
+												</div>	</td>
 										)
 									})}
 								</tr>
@@ -208,4 +219,6 @@ function VirtTable({ displayedPages, columns, columnVisibility, setColumnVisibil
 		</div>
 	)
 }
+
+
 export default VirtTable

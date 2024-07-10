@@ -1,154 +1,230 @@
-import React, { useEffect, useState } from 'react'
+import React, { useMemo, useReducer, useState } from 'react'
+import { keepPreviousData, useQuery, } from '@tanstack/react-query'
+import { useReactTable, getCoreRowModel, flexRender, getPaginationRowModel, } from '@tanstack/react-table'
+import { postMovies } from '../../api/api'
+import Filter from '../Filter/Filter'
 
-import {
-  flexRender,
-} from '@tanstack/react-table'
+function PaginTable({ searchMovieМVis, columns, columnVisibility, setColumnVisibility }) {
+  const fetchSize = 50
+  let n = 1
+  const rerender = useReducer(() => ({}), {})[1]
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  })
+  const [lengthMov, setLengthMov] = useState("-")
 
-export default function PaginTable({ table }) {
-  return (<>
-    <table>
-      <thead>{table.getHeaderGroups().map((headerGroup) => (
-        <tr key={headerGroup.id}>
-          {headerGroup.headers.map((header) => {
-            return (
-              <th style={{ cursor: "pointer" }} key={header.id} colSpan={header.colSpan}>
-                {header.isPlaceholder ? null : (
-                  <>
-                    <div
-                      {...{
-                        className: header.column.getCanSort() ? 'cursor-pointer select-none' : '',
-                        onClick: header.column.getToggleSortingHandler(),
-                      }}
-                    >
-                      {flexRender(header.column.columnDef.header, header.getContext())}
-                      {{
-                        asc: ' 🔼',
-                        desc: ' 🔽',
-                      }[header.column.getIsSorted()] ?? null}
-                    </div>
-                    {header.column.getCanFilter() ? (
-                      <div>
-                        <Filter column={header.column} />
+  const dataQuery = useQuery({
+    queryKey: ['data', pagination],
+    queryFn: () => {
+      const start = fetchSize * n
+      n = n + 1
+      
+      const fetchedData = postMovies({ pageSize: start })
+        .then((item) => {
+          const items = item.data.map((i) => {
+            i.id = String(i.id)
+            i.adult ? (i.adult = '18+') : (i.adult = '0+')
+            i.belongs_to_collection == null ? (i.belongs_to_collection = '-') : (i.belongs_to_collection = i.belongs_to_collection.name)
+            if (i.budget == null) { i.budget = '-' }
+            Array.isArray(i.genres) ? (i.genres = i.genres.map((genre) => genre.name).join(', ')) : (i.genres = '-')
+            Array.isArray(i.production_companies) ? (i.production_companies = i.production_companies.map((i) => i.name).join(', ')) : (i.production_companies = '-')
+            Array.isArray(i.production_countries) ? (i.production_countries = i.production_countries.map((i) => i.name).join(', ')) : (i.production_countries = '-')
+            Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
+            return i
+
+          })
+
+          return {
+            rows: items.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize),
+            pageCount: Math.ceil(item.data_size / pagination.pageSize),
+            rowCount: item.data_size,
+          }
+
+        })
+        .catch((err) => {
+          console.log(err)
+        })
+      return fetchedData
+    }
+    ,
+    placeholderData: keepPreviousData, // при смене страниц не отображаются 0 строк /загрузка следующей страницы
+  })
+  console.log(n)
+console.log(dataQuery.data)
+  const defaultData = useMemo(() => [], [])
+
+  const table = useReactTable({
+    data: dataQuery.data?.rows ?? defaultData,
+    columns,
+    pageCount: dataQuery.data?.pageCount ?? -1, //теперь вы можете указать "rowCount" вместо "pageCount", и "pageCount" будет вычисляться внутри системы (новое в версии 8.13.0)
+    //rowCount: dataQuery.data?.rowCount, // новое в версии 8.13.0 - в качестве альтернативы, просто введите "pageCount` напрямую
+    state: {
+      pagination
+    },
+    onPaginationChange: setPagination,
+    getCoreRowModel: getCoreRowModel(),
+    manualPagination: true, //мы выполняем разбивку страниц вручную "на стороне сервера"
+    //getPaginationRowModel: getPaginationRowModel(), // Если вы выполняете разбивку на страницы только вручную, вам это не нужно
+    debugTable: true,
+  })
+  return (
+    <div className="p-2">
+      <div className="h-2" />
+      <table style={{ display: 'grid' }}>
+        <thead style={{
+          display: 'grid',
+          position: 'sticky',
+          top: 68,
+          zIndex: 0,
+          backgroundColor: '#bbebca',
+          height: "75px"
+        }}>{table.getHeaderGroups().map((headerGroup) => (
+          <tr key={headerGroup.id} style={{ display: 'flex', width: '100%' }}>
+            {headerGroup.headers.map((header) => {
+              return (
+                <th key={header.id}
+                  colSpan={header.colSpan}
+                  style={{
+                    cursor: "pointer",
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: "space-around",
+                    width: header.getSize(),
+                  }}>
+                  {header.isPlaceholder ? null : (
+                    <>
+                      <div
+                        {...{
+                          className: header.column.getCanSort()
+                            ? 'cursor-pointer select-none'
+                            : '',
+                          onClick: header.column.getToggleSortingHandler(),
+                        }}
+                      >
+                        {flexRender(header.column.columnDef.header, header.getContext())}
+                        {{
+                          asc: ' 🔼',
+                          desc: ' 🔽',
+                        }[header.column.getIsSorted()] ?? null}
                       </div>
-                    ) : null}
-                  </>
-                )}
-              </th>
+                      {header.column.getCanFilter() ? (
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          width: (header.getSize() - 10),
+                          marginLeft: "5px"
+                        }} >
+                          <Filter column={header.column} />
+                        </div>
+                      ) : null}
+                    </>
+                  )}
+                </th>
+              )
+            })}
+          </tr>
+        ))}</thead>
+        <tbody>
+          {table.getRowModel().rows.map((row) => {
+            return (
+              <tr key={row.id}
+                style={{
+                  display: 'flex',
+                  width: '100%',
+                }}>
+                {row.getVisibleCells().map((cell) => {
+                  return (
+                    <td
+                      key={cell.id}
+                      style={{
+                        height: "150px",
+                        display: 'flex',
+                        width: cell.column.getSize(),
+                      }}
+                    ><div className='scrollable'>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
             )
           })}
-        </tr>
-      ))}</thead>
-      <tbody>
-        {table.getRowModel().rows.map((row) => {
-          return (
-            <tr key={row.id}>
-              {row.getVisibleCells().map((cell) => {
-                return <td kefy={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>
-              })}
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
-    <div className='h-2' />
-    <div className='flex items-center gap-2'>
-      <button className='border rounded p-1' onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()}>
-        {'<<'}
-      </button>
-      <button className='border rounded p-1' onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
-        {'<'}
-      </button>
-      <button className='border rounded p-1' onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
-        {'>'}
-      </button>
-      <button className='border rounded p-1' onClick={() => table.setPageIndex(table.getPageCount() - 1)} disabled={!table.getCanNextPage()}>
-        {'>>'}
-      </button>
-      <span className='flex items-center gap-1'>
-        <div>Page</div>
-        <strong>
-          {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-        </strong>
-      </span>
-      <span className='flex items-center gap-1'>
-        | Go to page:
-        <input
-          type='number'
-          defaultValue={table.getState().pagination.pageIndex + 1}
-          onChange={(e) => {
-            const page = e.target.value ? Number(e.target.value) - 1 : 0
-            table.setPageIndex(page)
+        </tbody>
+      </table>
+      <div className="h-2" />
+      <div className="flex items-center gap-2">
+        <button
+          className="border rounded p-1"
+          onClick={() => table.firstPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          {'<<'}
+        </button>
+        <button
+          className="border rounded p-1"
+          onClick={() => table.previousPage()}
+          disabled={!table.getCanPreviousPage()}
+        >
+          {'<'}
+        </button>
+        <button
+          className="border rounded p-1"
+          onClick={() => table.nextPage()}
+          disabled={!table.getCanNextPage()}
+        >
+          {'>'}
+        </button>
+        <button
+          className="border rounded p-1"
+          onClick={() => { table.lastPage(); }}
+          disabled={!table.getCanNextPage()}
+        >
+          {'>>'}
+        </button>
+        <span className="flex items-center gap-1">
+          <div>Page</div>
+          <strong>
+            {table.getState().pagination.pageIndex + 1} of{' '}
+            {table.getPageCount().toLocaleString()}
+          </strong>
+        </span>
+        <span className="flex items-center gap-1">
+          | Go to page:
+          <input
+            type="number"
+            defaultValue={table.getState().pagination.pageIndex + 1}
+            onChange={e => {
+              const page = e.target.value ? Number(e.target.value) - 1 : 0
+              table.setPageIndex(page)
+            }}
+            className="border p-1 rounded w-16"
+          />
+        </span>
+        <select
+          value={table.getState().pagination.pageSize}
+          onChange={e => {
+            table.setPageSize(Number(e.target.value))
           }}
-          className='border p-1 rounded w-16'
-        />
-      </span>
-      <select
-        value={table.getState().pagination.pageSize}
-        onChange={(e) => {
-          table.setPageSize(Number(e.target.value))
-        }}
-      >
-        {[2, 10, 20, 30, 40, 50].map((pageSize) => (
-          <option key={pageSize} value={pageSize}>
-            Show {pageSize}
-          </option>
-        ))}
-      </select>
-    </div>
-    <div>{table.getPrePaginationRowModel().rows.length} Rows</div>
-    <pre>{JSON.stringify({ columnFilters: table.getState().columnFilters }, null, 2)}</pre>
-  </>
-  )
-}
-
-function Filter({ column }) {
-  const columnFilterValue = column.getFilterValue()
-  const { filterVariant } = column.columnDef.meta ?? {}
-
-  return filterVariant === 'range' ? (
-    <div>
-      <div className='flex space-x-2'>
-        {/* See faceted column filters example for min max values functionality */}
-        <DebouncedInput type='number' value={(columnFilterValue)?.[0] ?? ''} onChange={(value) => column.setFilterValue((old) => [value, old?.[1]])} placeholder={`Min`} className='w-24 border shadow rounded' />
-        <DebouncedInput type='number' value={(columnFilterValue)?.[1] ?? ''} onChange={(value) => column.setFilterValue((old) => [old?.[0], value])} placeholder={`Max`} className='w-24 border shadow rounded' />
+        >
+          {[10, 20, 30, 40, 50].map(pageSize => (
+            <option key={pageSize} value={pageSize}>
+              Show {pageSize}
+            </option>
+          ))}
+        </select>
+        {dataQuery.isFetching ? 'Loading...' : null}
       </div>
-      <div className='h-1' />
+      <div>
+        Showing {table.getRowModel().rows.length.toLocaleString()} of{' '}
+        {dataQuery.data?.rowCount.toLocaleString()} Rows
+      </div>
+      <div>
+        <button onClick={() => rerender()}>Force Rerender</button>
+      </div>
+      <pre>{JSON.stringify(pagination, null, 2)}</pre>
     </div>
-  ) : filterVariant === 'select' ? (
-    <select onChange={(e) => column.setFilterValue(e.target.value)} value={columnFilterValue?.toString()}>
-      {/* See faceted column filters example for dynamic select options */}
-      <option value=''>All</option>
-      <option value='complicated'>complicated</option>
-      <option value='relationship'>relationship</option>
-      <option value='single'>single</option>
-    </select>
-  ) : (
-    <DebouncedInput className='w-36 border shadow rounded' onChange={(value) => column.setFilterValue(value)} placeholder={`Search...`} type='text' value={(columnFilterValue ?? '')} />
-    // See faceted column filters example for datalist search suggestions
   )
 }
-
-// A typical debounced input react component
-function DebouncedInput({
-  value: initialValue,
-  onChange,
-  debounce = 500,
-  ...props
-}) {
-  const [value, setValue] = useState(initialValue)
-
-  useEffect(() => {
-    setValue(initialValue)
-  }, [initialValue])
-
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      onChange(value)
-    }, debounce)
-
-    return () => clearTimeout(timeout)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value])
-
-  return <input {...props} value={value} onChange={(e) => setValue(e.target.value)} />
-}
+export default PaginTable

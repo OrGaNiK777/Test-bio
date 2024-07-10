@@ -6,26 +6,20 @@ import { postMovies } from '../api/api'
 import PaginTable from './paginTable/PaginTable'
 import { headlines } from '../constants/headlines'
 import {
-	getCoreRowModel,
-	getSortedRowModel,
 	useReactTable,
-	getFilteredRowModel,
-	getPaginationRowModel
+
 } from '@tanstack/react-table'
 
 export default function App() {
-	const [data, setData] = useState([])
 	const [columnVisibility, setColumnVisibility] = useState({})
 	const [displayedPages, setDisplayedPages] = useState(true)
 	const [inputSearchMovie, setInputSearchMovie] = useState('')
-	const [searchMovie, setSearchMovie] = useState({})
+	const [searchMovieМVis, setSearchMovie] = useState([])
 	const columns = useMemo(() => headlines, [])
 
-	function downloadMovies() {
-		postMovies({
-			page: 0,
-			pageSize: 100,
-		})
+
+	function search(phrase) {
+		postMovies({ search: phrase })
 			.then((item) => {
 				const items = item.data.map((i) => {
 					i.id = String(i.id)
@@ -38,24 +32,8 @@ export default function App() {
 					Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
 					return i
 				})
-				setData(items)
+				setSearchMovie(items)
 				console.log(items)
-			})
-			.catch((err) => {
-				console.log(err)
-			})
-			.finally(() => { })
-	}
-
-	useEffect(() => {
-		downloadMovies()
-	}, [])
-
-	function search(phrase) {
-		postMovies({ search: phrase })
-			.then((item) => {
-				setData(item.data)
-				console.log(item.data)
 			})
 			.catch((err) => {
 				console.log(err)
@@ -69,24 +47,13 @@ export default function App() {
 	}
 
 	//VirtTable
-	const [sorting, setSorting] = useState([])
+
 	const table = useReactTable({
-		data,
 		columns,
-		filterFns: {},
 		state: {
-			sorting,
-			columnVisibility,
+			columnVisibility
 		},
 		onColumnVisibilityChange: setColumnVisibility,
-		getCoreRowModel: getCoreRowModel(),
-		getFilteredRowModel: getFilteredRowModel(), //client side filtering
-		getSortedRowModel: getSortedRowModel(),
-		getPaginationRowModel: getPaginationRowModel(),
-		debugHeaders: true,
-		debugColumns: false,
-		debugTable: true,
-		manualSorting: displayedPages ? false : true
 	})
 
 	return (
@@ -122,18 +89,17 @@ export default function App() {
 			<button className='paginationBtn' onClick={() => { setDisplayedPages(!displayedPages) }}>{displayedPages ? "Pagination" : "All"}</button>
 			{displayedPages ?
 				<PaginTable
-					table={table}
-					sorting={sorting}
-					setSorting={setSorting}>
+					searchMovieМVis={searchMovieМVis}
+					columns={columns}
+					columnVisibility={columnVisibility}
+					setColumnVisibility={setColumnVisibility}>
 				</PaginTable >
 				:
 				<VirtTable
+					searchMovieМVis={searchMovieМVis}
 					columns={columns}
-					displayedPages={displayedPages}
 					columnVisibility={columnVisibility}
 					setColumnVisibility={setColumnVisibility}
-					sorting={sorting}
-					setSorting={setSorting}
 				></VirtTable>
 			}
 		</>
