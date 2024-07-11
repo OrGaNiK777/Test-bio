@@ -6,21 +6,24 @@ import Filter from '../Filter/Filter'
 
 function PaginTable({ searchMovieМVis, columns, columnVisibility, setColumnVisibility }) {
   const fetchSize = 50
-  let n = 1
   const rerender = useReducer(() => ({}), {})[1]
+  const [isPageSize, setIsPageSize] = useState(0)
+  const [isPageIndex, setIsPageIndex] = useState(10)
   const [pagination, setPagination] = useState({
     pageIndex: 0,
     pageSize: 10,
   })
-  const [lengthMov, setLengthMov] = useState("-")
+
+  function pages(size, index) {
+    setIsPageSize(size)
+    setIsPageIndex(index)
+  }
+
 
   const dataQuery = useQuery({
     queryKey: ['data', pagination],
     queryFn: () => {
-      const start = fetchSize * n
-      n = n + 1
-      
-      const fetchedData = postMovies({ pageSize: start })
+      const fetchedData = postMovies(pagination)
         .then((item) => {
           const items = item.data.map((i) => {
             i.id = String(i.id)
@@ -32,15 +35,13 @@ function PaginTable({ searchMovieМVis, columns, columnVisibility, setColumnVisi
             Array.isArray(i.production_countries) ? (i.production_countries = i.production_countries.map((i) => i.name).join(', ')) : (i.production_countries = '-')
             Array.isArray(i.spoken_languages) ? (i.spoken_languages = i.spoken_languages.map((i) => i.name).join(', ')) : (i.spoken_languages = '-')
             return i
-
           })
-
+          console.log(pagination)
           return {
             rows: items.slice(pagination.pageIndex * pagination.pageSize, (pagination.pageIndex + 1) * pagination.pageSize),
             pageCount: Math.ceil(item.data_size / pagination.pageSize),
             rowCount: item.data_size,
           }
-
         })
         .catch((err) => {
           console.log(err)
@@ -50,22 +51,20 @@ function PaginTable({ searchMovieМVis, columns, columnVisibility, setColumnVisi
     ,
     placeholderData: keepPreviousData, // при смене страниц не отображаются 0 строк /загрузка следующей страницы
   })
-  console.log(n)
-console.log(dataQuery.data)
   const defaultData = useMemo(() => [], [])
-
+  console.log(dataQuery.data)
   const table = useReactTable({
     data: dataQuery.data?.rows ?? defaultData,
     columns,
-    pageCount: dataQuery.data?.pageCount ?? -1, //теперь вы можете указать "rowCount" вместо "pageCount", и "pageCount" будет вычисляться внутри системы (новое в версии 8.13.0)
-    //rowCount: dataQuery.data?.rowCount, // новое в версии 8.13.0 - в качестве альтернативы, просто введите "pageCount` напрямую
+    //pageCount: dataQuery.data?.pageCount ?? -1, //теперь вы можете указать "rowCount" вместо "pageCount", и "pageCount" будет вычисляться внутри системы (новое в версии 8.13.0)
+    rowCount: dataQuery.data?.rowCount, // новое в версии 8.13.0 - в качестве альтернативы, просто введите "pageCount` напрямую
     state: {
       pagination
     },
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true, //мы выполняем разбивку страниц вручную "на стороне сервера"
-    //getPaginationRowModel: getPaginationRowModel(), // Если вы выполняете разбивку на страницы только вручную, вам это не нужно
+    getPaginationRowModel: getPaginationRowModel(), // Если вы выполняете разбивку на страницы только вручную, вам это не нужно
     debugTable: true,
   })
   return (
@@ -208,11 +207,12 @@ console.log(dataQuery.data)
             table.setPageSize(Number(e.target.value))
           }}
         >
-          {[10, 20, 30, 40, 50].map(pageSize => (
-            <option key={pageSize} value={pageSize}>
+          {[10, 20, 30, 40, 50].map(pageSize => {
+
+            return <option key={pageSize} value={pageSize}>
               Show {pageSize}
             </option>
-          ))}
+          })}
         </select>
         {dataQuery.isFetching ? 'Loading...' : null}
       </div>
