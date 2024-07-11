@@ -7,7 +7,6 @@ import PaginTable from './paginTable/PaginTable'
 import { headlines } from '../constants/headlines'
 import {
 	useReactTable,
-
 } from '@tanstack/react-table'
 
 export default function App() {
@@ -16,8 +15,6 @@ export default function App() {
 	const [inputSearchMovie, setInputSearchMovie] = useState('')
 	const [searchMovieМVis, setSearchMovie] = useState([])
 	const columns = useMemo(() => headlines, [])
-
-
 	function search(phrase) {
 		postMovies({ search: phrase })
 			.then((item) => {
@@ -33,12 +30,10 @@ export default function App() {
 					return i
 				})
 				setSearchMovie(items)
-				console.log(items)
 			})
 			.catch((err) => {
 				console.log(err)
 			})
-			.finally(() => { })
 	}
 
 	const onFormSubmit = (e) => {
@@ -82,25 +77,16 @@ export default function App() {
 			</nav >
 			<div>
 				<form className='d1' onSubmit={onFormSubmit}>
-					<input placeholder='поиска фильмов по фразе' value={inputSearchMovie} onChange={(e) => setInputSearchMovie(e.target.value)}></input>
+					<input placeholder='поиска фильмов по фразе' value={inputSearchMovie} onChange={(e) => { setInputSearchMovie(e.target.value); if (!(e.target.value)) { setSearchMovie([]) } }}></input>
 					<button type='submit'>{<FaSearch />}</button>
 				</form>
 			</div>
 			<button className='paginationBtn' onClick={() => { setDisplayedPages(!displayedPages) }}>{displayedPages ? "Pagination" : "All"}</button>
-			{displayedPages ?
-				<PaginTable
-					searchMovieМVis={searchMovieМVis}
-					columns={columns}
-					columnVisibility={columnVisibility}
-					setColumnVisibility={setColumnVisibility}>
-				</PaginTable >
-				:
-				<VirtTable
-					searchMovieМVis={searchMovieМVis}
-					columns={columns}
-					columnVisibility={columnVisibility}
-					setColumnVisibility={setColumnVisibility}
-				></VirtTable>
+			{
+				displayedPages ?
+					<PaginTable{...{ searchMovieМVis, columns, columnVisibility, setColumnVisibility, inputSearchMovie }} />
+					:
+					<VirtTable {...{ searchMovieМVis, columns, columnVisibility, setColumnVisibility, inputSearchMovie }} />
 			}
 		</>
 	)

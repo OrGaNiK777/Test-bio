@@ -5,7 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { postMovies } from '../../api/api'
 import Filter from '../Filter/Filter'
 
-function VirtTable({ searchMovieМVis, columns, columnVisibility, setColumnVisibility }) {
+function VirtTable({ searchMovieМVis, columns, columnVisibility, setColumnVisibility, inputSearchMovie }) {
 	const fetchSize = 30
 	const tableContainerRef = useRef(null)
 	const [lengthMov, setLengthMov] = useState("-")
@@ -72,7 +72,7 @@ function VirtTable({ searchMovieМVis, columns, columnVisibility, setColumnVisib
 	}, [fetchMoreOnBottomReached])
 
 	const table = useReactTable({
-		data: (searchMovieМVis.length === 0) ? flatData : searchMovieМVis,
+		data: (inputSearchMovie.length === 0 || searchMovieМVis.length === 0) ? flatData : searchMovieМVis,
 		columns,
 		filterFns: {},
 		state: {
@@ -215,7 +215,6 @@ function VirtTable({ searchMovieМVis, columns, columnVisibility, setColumnVisib
 					</tbody>
 				</table>
 			</div>
-			{isFetching && <div>Fetching More...</div>}
 		</div>
 	)
 }
